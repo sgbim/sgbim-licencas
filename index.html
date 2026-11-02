@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Licença SGBIM — Autodesk</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+body{font-family:'Inter',sans-serif}
+.modal{display:none}.modal.active{display:flex}
+.fade-in{animation:fadeIn .3s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.card-hover{transition:all .2s}.card-hover:hover{transform:translateY(-2px);box-shadow:0 10px 25px -5px rgb(0 0 0/.08)}
+.admin-only{display:none!important}
+body.is-admin .admin-only{display:flex!important}
+body.is-admin .admin-block{display:block!important}
+body.is-admin .admin-inline{display:inline-flex!important}
+body.is-admin table .admin-only{display:table-cell!important}
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+<header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+<div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="flex flex-col font-bold leading-none">
+<span class="text-2xl tracking-tight text-slate-900 flex items-center">SG<span class="text-[#1e3a5f] border-l-2 border-slate-300 ml-1.5 pl-1.5">BIM</span></span>
+<span class="text-[9px] font-medium text-slate-500 uppercase tracking-wider mt-0.5">Licenciamento Autodesk</span>
+</div>
+<span class="hidden lg:inline-flex items-center gap-2 text-sm font-semibold text-slate-600 ml-4"><i class="fa-solid fa-shield-halved text-[#1e3a5f]"></i> Controle de Licenças</span>
+</div>
+<div class="flex items-center gap-3">
+<span id="badge-persistencia" class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-100">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Modo Local
+</span>
+<div id="nav-user-zone" class="hidden flex items-center gap-3 pl-3 border-l border-slate-200">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-semibold text-slate-900" id="user-display-email">—</p>
+<p class="text-[10px] font-semibold" id="user-display-role">—</p>
+</div>
+<button onclick="logout()" class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50" title="Sair"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+</div>
+</div>
+</div>
+</header>
+
+<main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+
+<section id="view-login" class="max-w-md mx-auto my-12 bg-white rounded-3xl border border-slate-200 p-8 sm:p-10 shadow-xl fade-in">
+<div class="text-center mb-8">
+<div class="inline-flex items-center justify-center w-16 h-16 bg-[#1e3a5f] text-white rounded-2xl text-2xl font-bold mb-4 shadow-lg">SG</div>
+<h2 class="text-2xl font-bold text-slate-900">Painel SGBIM</h2>
+<p class="text-sm text-slate-500 mt-1.5">Licenças Autodesk — Admin e Consulta</p>
+</div>
+<div id="login-alert" class="hidden p-3.5 mb-5 rounded-2xl text-sm font-medium border flex items-start gap-2.5"></div>
+<form id="form-login" onsubmit="handleLogin(event)" class="space-y-5">
+<div>
+<label class="block text-xs font-semibold text-slate-600 mb-1.5">E-mail Corporativo</label>
+<input type="email" id="login-email" required placeholder="sgbim.adm@outlook.com" class="w-full px-4 py-3 border border-slate-200 rounded-2xl text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/30">
+</div>
+<div>
+<div class="flex justify-between items-center mb-1.5">
+<label class="block text-xs font-semibold text-slate-600">Senha de Acesso</label>
+<button type="button" onclick="toggleForgotPassword(true)" class="text-xs font-medium text-[#1e3a5f] hover:underline">Esqueci minha senha</button>
+</div>
+<input type="password" id="login-password" required placeholder="••••••••" class="w-full px-4 py-3 border border-slate-200 rounded-2xl text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/30">
+</div>
+<button type="submit" class="w-full bg-[#1e3a5f] hover:bg-[#162d4a] text-white font-semibold text-sm py-3.5 rounded-2xl flex items-center justify-center gap-2">
+<i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema
+</button>
+</form>
+<form id="form-forgot" onsubmit="handleForgotPassword(event)" class="hidden space-y-5">
+<div class="bg-blue-50 border border-blue-100 p-4 rounded-2xl text-xs text-blue-800">Informe o e-mail administrativo cadastrado.</div>
+<input type="email" id="forgot-email" required placeholder="sgbim.adm@outlook.com" class="w-full px-4 py-3 border border-slate-200 rounded-2xl text-sm bg-slate-50">
+<div class="flex justify-between"><button type="button" onclick="toggleForgotPassword(false)" class="text-xs font-semibold text-slate-500">← Voltar</button>
+<button type="submit" class="bg-[#1e3a5f] text-white font-semibold text-xs px-6 py-3 rounded-2xl">Enviar Link</button></div>
+</form>
+<div class="mt-6 pt-5 border-t border-slate-100 text-[10px] text-slate-400 text-center space-y-1">
+<p><strong>Admins:</strong> sgbim.adm@outlook.com · sgbim.direcao@outlook.com · sgbim.suporte@outlook.com</p>
+<p><strong>Consulta:</strong> sgbim.consulta@outlook.com (senha: user123) · Admins: admin123</p>
+</div>
+</section>
+
+<section id="view-dashboard" class="hidden space-y-6 fade-in">
+<div class="admin-block bg-white rounded-2xl border border-slate-200 p-5 shadow-sm" style="display:none">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+<div>
+<h3 class="text-sm font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-cloud text-[#1e3a5f]"></i> Persistência na Nuvem (Supabase)</h3>
+<p class="text-[11px] text-slate-500 mt-0.5">Sincronize dados entre usuários e dispositivos</p>
+</div>
+<span id="supa-status-label" class="text-[11px] font-semibold text-amber-600">Desconectado — modo local</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+<input type="text" id="supa-url" placeholder="https://xxxx.supabase.co" class="px-3 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50">
+<input type="password" id="supa-key" placeholder="Anon / Public Key" class="px-3 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50">
+<button type="button" onclick="conectarSupabase()" class="bg-[#1e3a5f] hover:bg-[#162d4a] text-white font-semibold text-xs py-2.5 rounded-xl">Conectar e Sincronizar</button>
+</div>
+</div>
+
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div>
+<h1 class="text-xl sm:text-2xl font-bold text-slate-900">Painel Operacional Autodesk</h1>
+<p class="text-sm text-slate-500 mt-0.5">Produtos, contratos, equipamentos e usuários</p>
+</div>
+<div class="flex flex-wrap gap-2">
+<label class="admin-inline cursor-pointer inline-flex items-center gap-2 bg-[#1e3a5f] hover:bg-[#162d4a] text-white font-medium text-xs px-4 py-2.5 rounded-xl">
+<i class="fa-solid fa-file-import"></i> Importar CSV
+<input type="file" id="input-file-uploader" accept=".csv,text/csv" class="hidden" onchange="processUploadedFile(event)">
+</label>
+<button onclick="exportToCSV()" class="inline-flex items-center gap-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-xs px-4 py-2.5 rounded-xl"><i class="fa-solid fa-file-export"></i> Exportar</button>
+<button onclick="salvarPlanilhaNoSistema()" class="admin-inline inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-4 py-2.5 rounded-xl"><i class="fa-solid fa-floppy-disk"></i> Salvar na Nuvem</button>
+<button onclick="recarregarDaNuvem()" class="inline-flex items-center gap-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-xs px-4 py-2.5 rounded-xl"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+</div>
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-sm font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-sliders text-[#1e3a5f]"></i> Filtros</h3>
+<button onclick="clearFilters()" class="text-xs font-medium text-slate-400 hover:text-slate-600">Limpar</button>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Produto</label>
+<select id="filter-produto" onchange="applyFilters()" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50"><option value="all">Todos</option></select>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Setor</label>
+<select id="filter-setor" onchange="applyFilters()" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50"><option value="all">Todos</option></select>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Grupo</label>
+<select id="filter-grupo" onchange="applyFilters()" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50"><option value="all">Todos</option></select>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Situação</label>
+<select id="filter-situacao" onchange="applyFilters()" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50"><option value="all">Todas</option></select>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Busca</label>
+<input type="text" id="filter-search" oninput="applyFilters()" placeholder="Contrato, user, email..." class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50">
+</div>
+</div>
+<p id="filter-summary" class="mt-3 text-xs text-slate-400"></p>
+</div>
+
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+<div class="bg-white rounded-2xl border border-slate-200 p-5 card-hover"><p class="text-[11px] font-bold text-slate-400 uppercase">Registros</p><p class="text-3xl font-bold text-slate-900 mt-1" id="metric-total">0</p></div>
+<div class="bg-white rounded-2xl border border-slate-200 p-5 card-hover"><p class="text-[11px] font-bold text-emerald-600 uppercase">Com usuário</p><p class="text-3xl font-bold text-emerald-700 mt-1" id="metric-allocated">0</p></div>
+<div class="bg-white rounded-2xl border border-slate-200 p-5 card-hover"><p class="text-[11px] font-bold text-blue-600 uppercase">Qtd licenças</p><p class="text-3xl font-bold text-blue-700 mt-1" id="metric-qty">0</p></div>
+<div class="bg-white rounded-2xl border border-slate-200 p-5 card-hover"><p class="text-[11px] font-bold text-violet-600 uppercase">Equipamentos</p><p class="text-3xl font-bold text-violet-700 mt-1" id="metric-assets">0</p></div>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+<div class="xl:col-span-3 admin-block" style="display:none">
+<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden sticky top-24">
+<div class="px-4 py-3 border-b border-slate-100 bg-slate-50/50"><h3 class="text-sm font-bold text-slate-800">Nova alocação</h3></div>
+<form id="form-allocation" onsubmit="handleManualAllocation(event)" class="p-4 space-y-2.5 max-h-[70vh] overflow-y-auto">
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Autodesk products *</label><input type="text" id="f-produto" required placeholder="AutoCAD 2026" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+<div class="grid grid-cols-2 gap-2">
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Quantidade</label><input type="number" id="f-quantidade" min="1" value="1" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Tipo de Licença</label><input type="text" id="f-tipo" placeholder="Network / Standalone" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Início</label><input type="text" id="f-inicio" placeholder="01/01/2026" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Expiração</label><input type="text" id="f-expiracao" placeholder="01/01/2027" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+</div>
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Situação</label><input type="text" id="f-situacao" placeholder="Ativa" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Contrato *</label><input type="text" id="f-contrato" required placeholder="CTR-2026-001" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Grupo</label><input type="text" id="f-grupo" placeholder="Engenharia" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+<div class="grid grid-cols-2 gap-2">
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Equipamento</label><input type="text" id="f-equipamento" placeholder="MQA-000" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Modelo Equip.</label><input type="text" id="f-modelo" placeholder="Dell Precision" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+</div>
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">User</label><input type="text" id="f-user" placeholder="login.rede" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Nome usuário *</label><input type="text" id="f-nome" required placeholder="Nome completo" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Setor</label><input type="text" id="f-setor" placeholder="Projetos" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Email Associado *</label><input type="email" id="f-email" required placeholder="usuario@empresa.com" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+<div class="grid grid-cols-2 gap-2">
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Telefone</label><input type="text" id="f-telefone" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Whatsapp</label><input type="text" id="f-whatsapp" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+</div>
+<div><label class="block text-[10px] font-semibold text-slate-600 mb-1">Observação</label><input type="text" id="f-obs" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50"></div>
+<button type="submit" class="w-full mt-1 bg-[#1e3a5f] hover:bg-[#162d4a] text-white font-semibold text-xs py-3 rounded-xl"><i class="fa-solid fa-plus"></i> Salvar Alocação</button>
+</form>
+</div>
+</div>
+
+<div class="xl:col-span-9 space-y-5" id="main-content-area">
+<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left text-[11px]">
+<thead>
+<tr class="border-b border-slate-100 bg-slate-50/80">
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase whitespace-nowrap">Produto</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase">Qtd</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase whitespace-nowrap">Tipo Lic.</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase">Início</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase">Expiração</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase">Situação</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase">Contrato</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase">Grupo</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase">Equipamento</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase whitespace-nowrap">Modelo Eq.</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase">User</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase whitespace-nowrap">Nome usuário</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase">Setor</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase whitespace-nowrap">Email</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase">Telefone</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase">Whatsapp</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase">Observação</th>
+<th class="px-3 py-2.5 font-bold text-slate-400 uppercase admin-only text-right">Ação</th>
+</tr>
+</thead>
+<tbody id="tabela-corpo" class="divide-y divide-slate-50"></tbody>
+</table>
+</div>
+</div>
+<div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+<div class="flex justify-between mb-2">
+<h3 class="text-xs font-bold text-slate-700"><i class="fa-solid fa-clock-rotate-left text-[#1e3a5f]"></i> Logs</h3>
+<button onclick="limparLogsVisuais()" class="text-[10px] text-slate-400">Limpar</button>
+</div>
+<ul id="listaLogs" class="space-y-1 text-[11px] font-mono text-slate-600 max-h-40 overflow-y-auto"></ul>
+</div>
+</div>
+</div>
+</section>
+</main>
+
+<div id="import-modal" class="modal fixed inset-0 bg-slate-900/40 backdrop-blur-sm items-center justify-center p-4 z-50">
+<div class="bg-white rounded-3xl border border-slate-200 w-full max-w-md p-6 shadow-2xl space-y-4">
+<div class="flex justify-between items-center"><h3 class="text-base font-bold">Resultado da Importação</h3>
+<button onclick="closeImportModal()" class="w-8 h-8 rounded-xl text-slate-400 hover:bg-slate-100"><i class="fa-solid fa-xmark"></i></button></div>
+<div id="import-report" class="p-4 rounded-2xl text-xs font-mono bg-slate-900 text-emerald-400 space-y-1 max-h-72 overflow-y-auto"></div>
+<button onclick="closeImportModal()" class="w-full py-3 bg-[#1e3a5f] text-white rounded-2xl text-sm font-semibold">Fechar</button>
+</div>
+</div>
+<footer class="border-t border-slate-200 py-5 mt-auto text-center text-xs text-slate-400">© 2026 SGBIM • Licenças Autodesk • Supabase + Vercel</footer>
+
+<script>
+const USUARIOS = {
+  'sgbim.adm@outlook.com': { senha: 'admin123', nivel: 'admin' },
+  'sgbim.direcao@outlook.com': { senha: 'admin123', nivel: 'admin' },
+  'sgbim.suporte@outlook.com': { senha: 'admin123', nivel: 'admin' },
+  'sgbim.consulta@outlook.com': { senha: 'user123', nivel: 'consulta' }
+};
+const STORAGE_KEY = 'sgbim_licencas_v4';
+const LOGS_KEY = 'sgbim_logs_v4';
+const SESSION_KEY = 'sgbim_session_v4';
+const SUPA_URL_KEY = 'sgbim_supa_url';
+const SUPA_KEY_KEY = 'sgbim_supa_key';
+
+const COLS = [
+  'produto','quantidade','tipo_licenca','inicio','expiracao','situacao','contrato','grupo',
+  'equipamento','modelo_equipamento','user_login','nome_usuario','setor','email','telefone','whatsapp','observacao'
+];
+
+let usuarioLogado = null;
+let baseDadosLicencas = [];
+let nextId = 1;
+let supabaseClient = null;
+let nuvemAtiva = false;
+let realtimeChannel = null;
+
+function emptyRow() {
+  return {
+    id: nextId++,
+    produto: '', quantidade: 1, tipo_licenca: '', inicio: '', expiracao: '', situacao: 'Ativa',
+    contrato: '', grupo: '', equipamento: '', modelo_equipamento: '', user_login: '',
+    nome_usuario: '', setor: '', email: '', telefone: '', whatsapp: '', observacao: '',
+    modificado_por: usuarioLogado ? usuarioLogado.email : ''
+  };
+}
+
+function atualizarBadgePersistencia() {
+  const badge = document.getElementById('badge-persistencia');
+  const label = document.getElementById('supa-status-label');
+  if (nuvemAtiva) {
+    badge.className = 'hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-100';
+    badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Nuvem Supabase';
+    if (label) { label.className = 'text-[11px] font-semibold text-emerald-600'; label.textContent = 'Conectado — nuvem'; }
+  } else {
+    badge.className = 'hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-100';
+    badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Modo Local';
+    if (label) { label.className = 'text-[11px] font-semibold text-amber-600'; label.textContent = 'Desconectado — modo local'; }
+  }
+}
+
+async function conectarSupabase() {
+  const url = (document.getElementById('supa-url').value || '').trim();
+  const key = (document.getElementById('supa-key').value || '').trim();
+  if (!url || !key) { alert('Preencha URL e Anon Key.'); return; }
+  try {
+    supabaseClient = window.supabase.createClient(url, key);
+    const { error } = await supabaseClient.from('licencas').select('id').limit(1);
+    if (error) throw error;
+    localStorage.setItem(SUPA_URL_KEY, url);
+    localStorage.setItem(SUPA_KEY_KEY, key);
+    nuvemAtiva = true;
+    atualizarBadgePersistencia();
+    await carregarDaNuvem();
+    iniciarRealtime();
+    registrarLog('Conectou à nuvem Supabase', usuarioLogado ? usuarioLogado.email : 'Sistema');
+    alert('Conectado à nuvem!');
+  } catch (err) {
+    nuvemAtiva = false; supabaseClient = null; atualizarBadgePersistencia();
+    alert('Falha: ' + (err.message || err));
+  }
+}
+
+async function tentarReconectarSupabase() {
+  const url = localStorage.getItem(SUPA_URL_KEY);
+  const key = localStorage.getItem(SUPA_KEY_KEY);
+  if (!url || !key) return;
+  const elUrl = document.getElementById('supa-url');
+  const elKey = document.getElementById('supa-key');
+  if (elUrl) elUrl.value = url;
+  if (elKey) elKey.value = key;
+  try {
+    supabaseClient = window.supabase.createClient(url, key);
+    const { error } = await supabaseClient.from('licencas').select('id').limit(1);
+    if (error) throw error;
+    nuvemAtiva = true; atualizarBadgePersistencia();
+    await carregarDaNuvem();
+    iniciarRealtime();
+  } catch (e) { nuvemAtiva = false; atualizarBadgePersistencia(); }
+}
+
+function iniciarRealtime() {
+  if (!supabaseClient || realtimeChannel) return;
+  try {
+    realtimeChannel = supabaseClient.channel('licencas-v4')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'licencas' }, async () => {
+        await carregarDaNuvem(true);
+        registrarLog('Atualização em tempo real', 'Nuvem');
+      }).subscribe();
+  } catch (e) {}
+}
+
+function mapFromDb(r) {
+  return {
+    id: r.id,
+    produto: r.produto || '',
+    quantidade: Number(r.quantidade) || 1,
+    tipo_licenca: r.tipo_licenca || '',
+    inicio: r.inicio || '',
+    expiracao: r.expiracao || '',
+    situacao: r.situacao || 'Ativa',
+    contrato: r.contrato || '',
+    grupo: r.grupo || '',
+    equipamento: r.equipamento || '',
+    modelo_equipamento: r.modelo_equipamento || '',
+    user_login: r.user_login || '',
+    nome_usuario: r.nome_usuario || '',
+    setor: r.setor || '',
+    email: r.email || '',
+    telefone: r.telefone || '',
+    whatsapp: r.whatsapp || '',
+    observacao: r.observacao || '',
+    modificado_por: r.modificado_por || ''
+  };
+}
+
+function mapToDb(r) {
+  return {
+    id: r.id,
+    produto: r.produto, quantidade: r.quantidade, tipo_licenca: r.tipo_licenca,
+    inicio: r.inicio, expiracao: r.expiracao, situacao: r.situacao,
+    contrato: r.contrato, grupo: r.grupo, equipamento: r.equipamento,
+    modelo_equipamento: r.modelo_equipamento, user_login: r.user_login,
+    nome_usuario: r.nome_usuario, setor: r.setor, email: r.email,
+    telefone: r.telefone, whatsapp: String(r.whatsapp || ''),
+    observacao: r.observacao, modificado_por: r.modificado_por || null
+  };
+}
+
+async function carregarDaNuvem(silencioso) {
+  if (!supabaseClient || !nuvemAtiva) return false;
+  try {
+    const { data, error } = await supabaseClient.from('licencas').select('*').order('id', { ascending: true });
+    if (error) throw error;
+    if (data) {
+      baseDadosLicencas = data.map(mapFromDb);
+      nextId = baseDadosLicencas.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0) + 1;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(baseDadosLicencas));
+      populateFilters(); applyFilters();
+      if (!silencioso) registrarLog('Carregou ' + baseDadosLicencas.length + ' da nuvem', 'Sistema');
+    }
+    return true;
+  } catch (e) {
+    if (!silencioso) alert('Erro nuvem: ' + (e.message || e));
+    return false;
+  }
+}
+
+async function salvarNaNuvem() {
+  if (!supabaseClient || !nuvemAtiva) return false;
+  try {
+    await supabaseClient.from('licencas').delete().neq('id', -999999999);
+    if (baseDadosLicencas.length > 0) {
+      const { error } = await supabaseClient.from('licencas').upsert(baseDadosLicencas.map(mapToDb), { onConflict: 'id' });
+      if (error) throw error;
+    }
+    return true;
+  } catch (e) {
+    alert('Erro ao salvar na nuvem.\n' + (e.message || e));
+    return false;
+  }
+}
+
+async function salvarPlanilhaNoSistema() {
+  if (!usuarioLogado || usuarioLogado.nivel !== 'admin') { alert('Apenas admin.'); return; }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(baseDadosLicencas));
+  if (nuvemAtiva) {
+    if (await salvarNaNuvem()) {
+      registrarLog('Salvou ' + baseDadosLicencas.length + ' na nuvem', usuarioLogado.email);
+      alert('Salvo na nuvem Supabase!');
+    }
+  } else {
+    registrarLog('Salvou local (' + baseDadosLicencas.length + ')', usuarioLogado.email);
+    alert('Salvo localmente. Conecte o Supabase para sincronizar.');
+  }
+}
+
+async function recarregarDaNuvem() {
+  if (nuvemAtiva) { await carregarDaNuvem(); alert('Atualizado da nuvem.'); }
+  else { carregarDadosPersistidos(); populateFilters(); applyFilters(); alert('Dados locais recarregados.'); }
+}
+
+function carregarDadosPersistidos() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      baseDadosLicencas = JSON.parse(raw);
+      nextId = baseDadosLicencas.reduce((m, r) => Math.max(m, r.id || 0), 0) + 1;
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+function validarEProcessarCSV(linhasObjeto) {
+  let erros = [];
+  let ok = [];
+  const autor = usuarioLogado ? usuarioLogado.email : 'sistema';
+  linhasObjeto.forEach((linha, index) => {
+    const n = index + 1;
+    if (!linha.contrato || !linha.nome_usuario || !linha.email) {
+      erros.push('Linha ' + n + ': Contrato, Nome usuário e Email Associado são obrigatórios.');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(String(linha.email).trim())) {
+      erros.push('Linha ' + n + ': E-mail inválido (' + linha.email + ').');
+      return;
+    }
+    let qtd = parseInt(String(linha.quantidade || '1').replace(/\D/g, ''), 10);
+    if (isNaN(qtd) || qtd < 1) qtd = 1;
+    ok.push({
+      id: nextId++,
+      produto: String(linha.produto || '').trim() || 'Não informado',
+      quantidade: qtd,
+      tipo_licenca: String(linha.tipo_licenca || '').trim(),
+      inicio: String(linha.inicio || '').trim(),
+      expiracao: String(linha.expiracao || '').trim(),
+      situacao: String(linha.situacao || '').trim() || 'Ativa',
+      contrato: String(linha.contrato).trim(),
+      grupo: String(linha.grupo || '').trim(),
+      equipamento: String(linha.equipamento || '').trim().toUpperCase(),
+      modelo_equipamento: String(linha.modelo_equipamento || '').trim(),
+      user_login: String(linha.user_login || '').trim(),
+      nome_usuario: String(linha.nome_usuario).trim(),
+      setor: String(linha.setor || '').trim() || 'Geral',
+      email: String(linha.email).trim().toLowerCase(),
+      telefone: String(linha.telefone || '').replace(/\D/g, ''),
+      whatsapp: String(linha.whatsapp || '').replace(/\D/g, ''),
+      observacao: String(linha.observacao || '').trim(),
+      modificado_por: autor
+    });
+  });
+  if (erros.length) {
+    registrarLog('Falha importação: ' + erros.length + ' erro(s)', 'erro');
+    showImportReport(['✗ Validação falhou', ''].concat(erros.slice(0, 10)).concat(['', 'Corrija o CSV.']));
+    return null;
+  }
+  return ok;
+}
+
+function registrarLog(acao, autor) {
+  const lista = document.getElementById('listaLogs');
+  if (!lista) return;
+  const ts = new Date().toLocaleTimeString('pt-BR') + ' ' + new Date().toLocaleDateString('pt-BR');
+  const item = document.createElement('li');
+  item.className = 'flex gap-2 py-1 border-b border-slate-50';
+  item.innerHTML = '<span class="text-slate-400 shrink-0">[' + ts + ']</span><span class="flex-1">' + escapeHtml(acao) + '</span><span class="text-[#1e3a5f] font-semibold">' + escapeHtml(autor || '') + '</span>';
+  lista.insertBefore(item, lista.firstChild);
+  let logs = JSON.parse(localStorage.getItem(LOGS_KEY) || '[]');
+  logs.unshift({ timestamp: ts, acao, autor });
+  if (logs.length > 80) logs = logs.slice(0, 80);
+  localStorage.setItem(LOGS_KEY, JSON.stringify(logs));
+}
+
+function limparLogsVisuais() {
+  localStorage.removeItem(LOGS_KEY);
+  document.getElementById('listaLogs').innerHTML = '<li class="text-slate-400">Limpo.</li>';
+}
+
+function carregarLogs() {
+  const lista = document.getElementById('listaLogs');
+  if (!lista) return;
+  const logs = JSON.parse(localStorage.getItem(LOGS_KEY) || '[]');
+  lista.innerHTML = '';
+  if (!logs.length) { lista.innerHTML = '<li class="text-slate-400">Aguardando...</li>'; return; }
+  logs.slice(0, 30).forEach(l => {
+    const li = document.createElement('li');
+    li.className = 'flex gap-2 py-1 border-b border-slate-50';
+    li.innerHTML = '<span class="text-slate-400">[' + l.timestamp + ']</span><span class="flex-1">' + escapeHtml(l.acao) + '</span><span class="text-[#1e3a5f] font-semibold">' + escapeHtml(l.autor) + '</span>';
+    lista.appendChild(li);
+  });
+}
+
+function handleLogin(e) {
+  e.preventDefault();
+  const email = (document.getElementById('login-email').value || '').trim().toLowerCase();
+  const password = (document.getElementById('login-password').value || '').trim();
+  if (!email || !password) { showLoginAlert('Preencha e-mail e senha.', 'error'); return; }
+  const u = USUARIOS[email];
+  if (u && u.senha === password) {
+    usuarioLogado = { email, nivel: u.nivel };
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ email }));
+    document.getElementById('login-alert').classList.add('hidden');
+    updateUIState();
+    registrarLog('Login', email);
+  } else showLoginAlert('Credenciais inválidas.', 'error');
+}
+
+function handleForgotPassword(e) {
+  e.preventDefault();
+  const email = (document.getElementById('forgot-email').value || '').trim().toLowerCase();
+  if (USUARIOS[email]) { showLoginAlert('Instruções enviadas para <strong>' + email + '</strong>.', 'success'); toggleForgotPassword(false); }
+  else showLoginAlert('E-mail não encontrado.', 'error');
+}
+
+function showLoginAlert(message, type) {
+  const a = document.getElementById('login-alert');
+  a.className = type === 'success'
+    ? 'p-3.5 mb-5 rounded-2xl text-sm font-medium border bg-emerald-50 border-emerald-100 text-emerald-800 flex items-start gap-2.5'
+    : 'p-3.5 mb-5 rounded-2xl text-sm font-medium border bg-rose-50 border-rose-100 text-rose-800 flex items-start gap-2.5';
+  a.innerHTML = (type === 'success' ? '<i class="fa-solid fa-circle-check mt-0.5"></i>' : '<i class="fa-solid fa-circle-exclamation mt-0.5"></i>') + '<span>' + message + '</span>';
+  a.classList.remove('hidden');
+}
+
+function toggleForgotPassword(show) {
+  document.getElementById('form-login').classList.toggle('hidden', show);
+  document.getElementById('form-forgot').classList.toggle('hidden', !show);
+  document.getElementById('login-alert').classList.add('hidden');
+}
+
+function logout() {
+  if (usuarioLogado) registrarLog('Logout', usuarioLogado.email);
+  usuarioLogado = null;
+  localStorage.removeItem(SESSION_KEY);
+  document.body.classList.remove('is-admin');
+  if (realtimeChannel && supabaseClient) { supabaseClient.removeChannel(realtimeChannel); realtimeChannel = null; }
+  updateUIState();
+}
+
+function updateUIState() {
+  const loginView = document.getElementById('view-login');
+  const dash = document.getElementById('view-dashboard');
+  const nav = document.getElementById('nav-user-zone');
+  if (usuarioLogado) {
+    loginView.classList.add('hidden');
+    dash.classList.remove('hidden');
+    nav.classList.remove('hidden'); nav.classList.add('flex');
+    document.getElementById('user-display-email').innerText = usuarioLogado.email;
+    const role = document.getElementById('user-display-role');
+    if (usuarioLogado.nivel === 'admin') {
+      document.body.classList.add('is-admin');
+      role.innerText = 'Administrador'; role.className = 'text-[10px] text-emerald-600 font-semibold';
+    } else {
+      document.body.classList.remove('is-admin');
+      role.innerText = 'Consulta'; role.className = 'text-[10px] text-amber-600 font-semibold';
+    }
+    const main = document.getElementById('main-content-area');
+    if (usuarioLogado.nivel === 'admin') { main.classList.remove('xl:col-span-12'); main.classList.add('xl:col-span-9'); }
+    else { main.classList.remove('xl:col-span-9'); main.classList.add('xl:col-span-12'); }
+    carregarDadosPersistidos(); carregarLogs(); populateFilters(); applyFilters();
+    atualizarBadgePersistencia(); tentarReconectarSupabase();
+  } else {
+    loginView.classList.remove('hidden');
+    dash.classList.add('hidden');
+    nav.classList.add('hidden'); nav.classList.remove('flex');
+  }
+}
+
+function fillSelect(id, values) {
+  const sel = document.getElementById(id);
+  const cur = sel.value;
+  sel.innerHTML = '<option value="all">Todos</option>';
+  [...values].sort().forEach(v => {
+    const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o);
+  });
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+
+function populateFilters() {
+  const produtos = new Set(), setores = new Set(), grupos = new Set(), situacoes = new Set();
+  baseDadosLicencas.forEach(r => {
+    if (r.produto) produtos.add(r.produto);
+    if (r.setor) setores.add(r.setor);
+    if (r.grupo) grupos.add(r.grupo);
+    if (r.situacao) situacoes.add(r.situacao);
+  });
+  fillSelect('filter-produto', produtos);
+  fillSelect('filter-setor', setores);
+  fillSelect('filter-grupo', grupos);
+  fillSelect('filter-situacao', situacoes);
+}
+
+function getFiltered() {
+  const produto = document.getElementById('filter-produto').value;
+  const setor = document.getElementById('filter-setor').value;
+  const grupo = document.getElementById('filter-grupo').value;
+  const situacao = document.getElementById('filter-situacao').value;
+  const q = (document.getElementById('filter-search').value || '').trim().toLowerCase();
+  return baseDadosLicencas.filter(r => {
+    if (produto !== 'all' && r.produto !== produto) return false;
+    if (setor !== 'all' && r.setor !== setor) return false;
+    if (grupo !== 'all' && r.grupo !== grupo) return false;
+    if (situacao !== 'all' && r.situacao !== situacao) return false;
+    if (q) {
+      const blob = [r.contrato, r.nome_usuario, r.email, r.user_login, r.produto, r.equipamento].join(' ').toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function applyFilters() {
+  const dados = getFiltered();
+  document.getElementById('metric-total').innerText = dados.length;
+  document.getElementById('metric-allocated').innerText = dados.filter(r => r.nome_usuario).length;
+  document.getElementById('metric-qty').innerText = dados.reduce((s, r) => s + (Number(r.quantidade) || 0), 0);
+  document.getElementById('metric-assets').innerText = new Set(dados.map(r => r.equipamento).filter(Boolean)).size;
+  document.getElementById('filter-summary').innerText = dados.length + ' registro(s)';
+  const tbody = document.getElementById('tabela-corpo');
+  if (!dados.length) {
+    tbody.innerHTML = '<tr><td colspan="18" class="px-5 py-10 text-center text-slate-400">Nenhum dado. Importe CSV ou cadastre (admin).</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '';
+  dados.forEach(r => {
+    const idx = baseDadosLicencas.findIndex(x => x.id === r.id);
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50/80';
+    const cells = [
+      r.produto, r.quantidade, r.tipo_licenca, r.inicio, r.expiracao, r.situacao,
+      r.contrato, r.grupo, r.equipamento, r.modelo_equipamento, r.user_login,
+      r.nome_usuario, r.setor, r.email, r.telefone, r.whatsapp, r.observacao
+    ];
+    tr.innerHTML = cells.map(c => '<td class="px-3 py-2 whitespace-nowrap">' + escapeHtml(c == null || c === '' ? '—' : c) + '</td>').join('') +
+      '<td class="px-3 py-2 text-right admin-only"><button onclick="removerLinha(' + idx + ')" class="text-rose-500 hover:text-rose-700 font-semibold">Remover</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function clearFilters() {
+  ['filter-produto','filter-setor','filter-grupo','filter-situacao'].forEach(id => document.getElementById(id).value = 'all');
+  document.getElementById('filter-search').value = '';
+  applyFilters();
+}
+
+async function handleManualAllocation(e) {
+  e.preventDefault();
+  if (!usuarioLogado || usuarioLogado.nivel !== 'admin') { alert('Apenas admin.'); return; }
+  const produto = document.getElementById('f-produto').value.trim();
+  const contrato = document.getElementById('f-contrato').value.trim();
+  const nome = document.getElementById('f-nome').value.trim();
+  const email = document.getElementById('f-email').value.trim();
+  if (!produto || !contrato || !nome || !email) { alert('Produto, Contrato, Nome e Email são obrigatórios.'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('E-mail inválido.'); return; }
+  let qtd = parseInt(document.getElementById('f-quantidade').value, 10); if (isNaN(qtd) || qtd < 1) qtd = 1;
+  baseDadosLicencas.unshift({
+    id: nextId++,
+    produto, quantidade: qtd,
+    tipo_licenca: document.getElementById('f-tipo').value.trim(),
+    inicio: document.getElementById('f-inicio').value.trim(),
+    expiracao: document.getElementById('f-expiracao').value.trim(),
+    situacao: document.getElementById('f-situacao').value.trim() || 'Ativa',
+    contrato, grupo: document.getElementById('f-grupo').value.trim(),
+    equipamento: document.getElementById('f-equipamento').value.trim().toUpperCase(),
+    modelo_equipamento: document.getElementById('f-modelo').value.trim(),
+    user_login: document.getElementById('f-user').value.trim(),
+    nome_usuario: nome, setor: document.getElementById('f-setor').value.trim() || 'Geral',
+    email: email.toLowerCase(),
+    telefone: document.getElementById('f-telefone').value.replace(/\D/g, ''),
+    whatsapp: document.getElementById('f-whatsapp').value.replace(/\D/g, ''),
+    observacao: document.getElementById('f-obs').value.trim(),
+    modificado_por: usuarioLogado.email
+  });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(baseDadosLicencas));
+  if (nuvemAtiva) await salvarNaNuvem();
+  ['f-produto','f-tipo','f-inicio','f-expiracao','f-situacao','f-contrato','f-grupo','f-equipamento','f-modelo','f-user','f-nome','f-setor','f-email','f-telefone','f-whatsapp','f-obs'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-quantidade').value = '1';
+  registrarLog('Alocação: ' + nome + ' / ' + contrato, usuarioLogado.email);
+  populateFilters(); applyFilters();
+}
+
+async function removerLinha(index) {
+  if (!usuarioLogado || usuarioLogado.nivel !== 'admin') return;
+  if (index < 0 || index >= baseDadosLicencas.length) return;
+  const item = baseDadosLicencas[index];
+  if (!confirm('Remover ' + item.nome_usuario + ' (' + item.contrato + ')?')) return;
+  baseDadosLicencas.splice(index, 1);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(baseDadosLicencas));
+  if (nuvemAtiva) await salvarNaNuvem();
+  registrarLog('Removeu: ' + item.nome_usuario, usuarioLogado.email);
+  populateFilters(); applyFilters();
+}
+
+function processUploadedFile(event) {
+  if (!usuarioLogado || usuarioLogado.nivel !== 'admin') { alert('Apenas admin.'); event.target.value = ''; return; }
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      let text = e.target.result;
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+      if (lines.length < 2) { showImportReport(['Arquivo vazio.']); return; }
+      const first = lines[0];
+      const sep = ((first.match(/;/g) || []).length >= (first.match(/,/g) || []).length) ? ';' : ',';
+      const headers = parseCSVLine(lines[0], sep).map(h =>
+        h.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['"]/g, '').trim()
+      );
+      const colMap = {
+        produto: findCol(headers, ['autodesk products', 'autodesk product', 'produto', 'product', 'software']),
+        quantidade: findCol(headers, ['quantidade', 'qtd', 'qty', 'quota', 'licencas']),
+        tipo_licenca: findCol(headers, ['tipo de licenca', 'tipo licenca', 'tipo', 'license type', 'chave']),
+        inicio: findCol(headers, ['inicio', 'start', 'data inicio']),
+        expiracao: findCol(headers, ['expiracao', 'expiração', 'vencimento', 'end', 'expiry']),
+        situacao: findCol(headers, ['situacao', 'situação', 'status', 'estado']),
+        contrato: findCol(headers, ['contrato', 'contract']),
+        grupo: findCol(headers, ['grupo', 'equipe', 'team']),
+        equipamento: findCol(headers, ['equipamento', 'asset', 'maquina', 'máquina']),
+        modelo_equipamento: findCol(headers, ['modelo equipamento', 'modelo equip', 'modelo', 'model']),
+        user_login: findCol(headers, ['user', 'usuario rede', 'login', 'username']),
+        nome_usuario: findCol(headers, ['nome usuario', 'nome usuário', 'nome do usuario', 'nome']),
+        setor: findCol(headers, ['setor', 'sector', 'area']),
+        email: findCol(headers, ['email associado', 'e-mail associado', 'email', 'e-mail', 'mail']),
+        telefone: findCol(headers, ['telefone', 'phone', 'fone']),
+        whatsapp: findCol(headers, ['whatsapp', 'whats', 'celular']),
+        observacao: findCol(headers, ['observacao', 'observação', 'obs', 'notes', 'nota'])
+      };
+      const objs = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseCSVLine(lines[i], sep);
+        if (cols.length < 2) continue;
+        const get = (k) => { const idx = colMap[k]; return (idx >= 0 && cols[idx] !== undefined) ? String(cols[idx]).trim() : ''; };
+        objs.push({
+          produto: get('produto'), quantidade: get('quantidade'), tipo_licenca: get('tipo_licenca'),
+          inicio: get('inicio'), expiracao: get('expiracao'), situacao: get('situacao'),
+          contrato: get('contrato'), grupo: get('grupo'), equipamento: get('equipamento'),
+          modelo_equipamento: get('modelo_equipamento'), user_login: get('user_login'),
+          nome_usuario: get('nome_usuario'), setor: get('setor'), email: get('email'),
+          telefone: get('telefone'), whatsapp: get('whatsapp'), observacao: get('observacao')
+        });
+      }
+      const validados = validarEProcessarCSV(objs);
+      if (!validados) { event.target.value = ''; return; }
+      baseDadosLicencas = validados;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(baseDadosLicencas));
+      if (nuvemAtiva) await salvarNaNuvem();
+      showImportReport(['✓ Importação OK', '', '• Linhas: ' + validados.length, nuvemAtiva ? '• Nuvem atualizada' : '• Local (conecte Supabase)', '', 'Colunas Autodesk mapeadas.']);
+      registrarLog('CSV importado (' + validados.length + ')', usuarioLogado.email);
+      populateFilters(); applyFilters();
+    } catch (err) {
+      showImportReport(['Erro: ' + err.message]);
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function findCol(headers, names) {
+  for (const name of names) {
+    const idx = headers.findIndex(h => h.includes(name) || name.includes(h));
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+
+function parseCSVLine(line, separator) {
+  const result = [];
+  let current = '', inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i], next = line[i + 1];
+    if (char === '"' && inQuotes && next === '"') { current += '"'; i++; }
+    else if (char === '"') inQuotes = !inQuotes;
+    else if (char === separator && !inQuotes) { result.push(current.trim()); current = ''; }
+    else current += char;
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function showImportReport(lines) {
+  document.getElementById('import-report').innerHTML = lines.map(l => '<p>' + (l || '&nbsp;') + '</p>').join('');
+  document.getElementById('import-modal').classList.add('active');
+}
+function closeImportModal() { document.getElementById('import-modal').classList.remove('active'); }
+
+function exportToCSV() {
+  if (!baseDadosLicencas.length) { alert('Sem dados.'); return; }
+  const headers = ['Autodesk products','Quantidade','Tipo de Licença','Inicio','Expiração','Situação','Contrato','Grupo','Equipamento','Modelo Equipamento','User','Nome usuário','Setor','Email Associado','Telefone','Whatsapp','Observação'];
+  const keys = ['produto','quantidade','tipo_licenca','inicio','expiracao','situacao','contrato','grupo','equipamento','modelo_equipamento','user_login','nome_usuario','setor','email','telefone','whatsapp','observacao'];
+  const rows = [headers.join(';')];
+  baseDadosLicencas.forEach(r => {
+    rows.push(keys.map(k => '"' + String(r[k] == null ? '' : r[k]).replace(/"/g, '""') + '"').join(';'));
+  });
+  const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'SGBIM_Autodesk_' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  if (usuarioLogado) registrarLog('Exportou CSV', usuarioLogado.email);
+}
+
+function escapeHtml(t) {
+  if (t == null) return '';
+  const d = document.createElement('div');
+  d.textContent = String(t);
+  return d.innerHTML;
+}
+
+function restaurarSessao() {
+  try {
+    const s = localStorage.getItem(SESSION_KEY);
+    if (s) {
+      const u = JSON.parse(s);
+      if (USUARIOS[u.email]) { usuarioLogado = { email: u.email, nivel: USUARIOS[u.email].nivel }; return true; }
+    }
+  } catch (e) {}
+  return false;
+}
+
+restaurarSessao();
+updateUIState();
+atualizarBadgePersistencia();
+</script>
+</body>
+</html>
